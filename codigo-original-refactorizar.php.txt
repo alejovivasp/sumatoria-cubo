@@ -1,0 +1,80 @@
+//---------------------------------------
+// Los comentarios que inician con //MP Corresponde a malas practicas en mi criterio
+//--------------------------------------
+public function post_confirm()
+{
+	$id = Input::get('service_id'); //MP El nombre de la variable no es bueno. Se recomienda cambiar el nombre por idServicio
+	$servicio = Service::find($id); //MP El valor de la variable $id no se valida, lo que puede derivar inyeccion SQL 
+	//dd($servicio) //MP Comentario no util para el codigo
+	if($servicio != NULL)
+	{
+		if( $servicio->status_id == '6' )
+		{
+			return Response::json(array('error' => '2')); //MP El codigo de error no es claro, mejor usar algo como "ERROR_SERVICIO_FINALIZADO"
+		}
+		
+		if( $servicio->driver_id == NULL && $servicio->status_id == '1' )
+		{
+			$servicio = Service::update($id,
+										array
+										(
+											'driver_id' => Input::get('driver_id'),//MP El valor de la variable $driver_id no se valida, lo que puede derivar inyeccion SQL
+																				   //MP No se valida que exista el "Driver"
+											
+											'status_id' => '2'
+											// Up Carro    //MP Comentario no util para el codigo
+											//, 'pwd' => md5(Input::get('pwd')) //MP Comentario no util para el codigo
+										)
+										);
+			Driver::update(Input::get('driver_id'),array('available' => '0'));//MP No se valida que exista el "Driver"
+			$driverTmp = Driver::find(Input::get('driver_id'));
+			Service::update($id,array('car_id' => $driverTmp->car_id //MP No se valida que exista el "Driver"
+									  // Up Carro //MP Comentario no util para el codigo
+									  //, 'pwd' => md5(Input::get('pwd')) //MP Comentario no util para el codigo
+			));
+			//Notificar a usuario
+			$pushMessage = 'Tu servcio ha sido confirmado!';
+			//MP Comentario no util para el codigo
+			/* $servicio = Service::find($id);
+			   $push = Push::make();
+			   if( $servicio->user->type == '1' ) // iPhone
+			   {
+			   	$pushAns = $push->ios($sericio->user->uuid,$pushMEssage);
+			   }
+			   else
+			   {
+			   	$pushAns = $push->android($servicio->user->uuid,$pushMessage);
+			   }
+			*/
+			$servicio = Service::find($id); //MP Se consulta de nuevo el servicio sin ser necesario
+		    $push = Push::make();
+		    if( $servicio->user->uuid == '' )
+		    {
+		   	  	return Response::json(array('error' => '0'));
+		    }
+		    
+		    //MP Esta logica es mejor dejarla en una funcion distinta
+		    if( $servicio->user->type == '1' ) // iPhone
+		    {
+		    	//MP No hace uso de la variable result la cual puede posiblemente indicar un error  
+		   	    $result = $push->ios($sericio->user->uuid,$pushMEssage,1,'honk.wav','Open',array('serviceId' => $servicio->id));
+		    }
+		    //MP Se asume que siempre que el type sea distinto de 1 es notificacion android lo cual puede no ser cierto		    
+		    else
+		    {
+			    //MP No hace uso de la variable result la cual puede posiblemente indicar un error
+		    	$result = $push->android2($sericio->user->uuid,$pushMEssage,1,'default','Open',array('serviceId' => $servicio->id));
+		    }
+		    		    
+		    return Response::json(array('error' => '0')) //MP El codigo de error no claro
+		}
+		else
+		{
+			return Response::json(array('error' => '1')) //MP El codigo de error no claro
+		}
+	}
+	else
+	{
+		return Response::json(array('error' => '3')); //MP El codigo de error no claro
+	}
+}

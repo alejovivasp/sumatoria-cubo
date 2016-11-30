@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	<meta charset="UTF-8">
+	<title>Sumatoria cubo</title>
+	<link rel="stylesheet" type="text/css" href="dependencias/foundation.min.css" />
+</head>
+<body>	
+	<h1 class="text-center">Sumatoria cubo</h1>
+	<h4 id="MensajeResultado" class="text-center"></h4>
+	<form>
+		<div class="row">
+			<div class="medium-5 columns">
+				<label>
+					Entrada:
+					<textarea id="Comandos" rows="15">
+2
+4 5
+UPDATE 2 2 2 4
+QUERY 1 1 1 3 3 3
+UPDATE 1 1 1 23
+QUERY 2 2 2 4 4 4
+QUERY 1 1 1 3 3 3
+2 4
+UPDATE 2 2 2 1
+QUERY 1 1 1 1 1 1
+QUERY 1 1 1 2 2 2
+QUERY 2 2 2 2 2 2
+					</textarea>
+				</label>
+			</div>
+			<div class="medium-2 columns">
+				<input class="button" type="button" onclick="sumatoriacubo.procesar()" value="Procesar" />
+			</div>
+			<div class="medium-5 columns">
+				<label>
+					Salida:
+					<textarea id="Resultado" rows="15">		
+					</textarea>
+				</label>
+			</div>
+		</div>
+	</form>
+	<script type="text/javascript" src="sumatoriacubo.js"></script>	
+</body>
+</html>

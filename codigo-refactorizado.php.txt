@@ -1,0 +1,95 @@
+// A continuacion se listan los ajustes realizados al codigo para eliminar malas practicas
+// 1. Se elimina codigo comentariado obsoleto
+// 2. Se deja solo comentarios nuevos indicando los cambios o mejoras
+// 3. Se usa "estado" en lugar de "error" para indicar que la respuesta no siempre es un error
+// 4. Se regresa en estado un texto para hacer mas compresible los posibles errores
+// 5. Se hacen validaciones antes de hacer operaciones para:
+//     - Evitar tener if anidados que hacen mas dificil leer el codigo.
+//     - Evitar hacer consultas y cambios en la base de datos. 
+// 6. Se valida el resultado de la operacion push
+// 7. Se evita inyeccion SQL
+public function post_confirm()
+{
+	$idServicio = Input::get('service_id'); // Se cambia el nombre de la variable de id a idServicio
+	if( !is_int( $idServicio ) )            // Se valida que el valor sea un entero para evitar SQL inyection
+	{
+		return Response::json(array('estado' => 'ERROR_ID_SERVICIO_NO_NUMERICO'));
+	}
+	
+	$idDriver = Input::get('driver_id');
+	if( !is_int( $idDriver ) )            // Se valida que el valor sea un entero para evitar SQL inyection
+	{
+		return Response::json(array('estado' => 'ERROR_ID_DRIVER_NO_NUMERICO'));
+	}
+	
+	$servicio = Service::find($idServicio);
+	// Se hacen validaciones antes de hacer operaciones
+	if($servicio == NULL)
+	{
+		return Response::json(array('estado' => 'ERROR_SERVICIO_NO_EXISTE'));
+	}	
+	if( $servicio->status_id == '6' )
+	{
+		return Response::json(array('estado' => 'ERROR_ESTADO_SERVICIO_INVALIDO'));
+	}	
+	if( $servicio->driver_id != NULL )
+	{
+		return Response::json(array('estado' => 'ERROR_SERVICIO_TIENE_ASIGNADO_CONDUCTOR'));
+	}
+	if( $servicio->status_id != '1' )
+	{
+		return Response::json(array('estado' => 'ERROR_ESTADO_SERVICIO_DISTINTO_1'));
+	}	
+	if( $servicio->user->uuid == '' )
+	{
+	  	return Response::json(array('estado' => 'ERROR_USUARIO_SIN_UUID'));
+	}
+	
+	// Se consulta y valida que exista el Driver antes enviar el update de Servicio
+	$driver = Driver::find($idDriver);
+	if( $driver == NULL )
+	{
+		return Response::json(array('estado' => 'ERROR_DRIVER_NO_EXISTE'));
+	}
+	// Se valida que el driver este disponible, segun la logica parace ser que hace falta esta validacion
+	if( $driver->available == '0' )
+	{
+		return Response::json(array('estado' => 'ERROR_DRIVER_NO_ESTA_DISPONIBLE'));
+	}
+
+	Service::update($idServicio, array('driver_id' => driver->driver_id,'status_id' => '2'));
+	Driver::update($idDriver,array('available' => '0'));
+	// Nota: Se evita consultar de nuevo el driver ya que el car_id no ha cambiado.
+	Service::update($idServicio,array('car_id' => $driver->car_id ));		    
+    
+	// Se deja en una nueva funcion el envio de mensajes push y se valida el resultado
+	$resultadoPush = send_push($servicio,'Tu servcio ha sido confirmado!');
+	if( $resultadoPush == NULL )
+	{
+		return Response::json(array('estado' => 'ERROR_TIPO_DISPOSITIVO_NOTIFICACION_NO_SOPORTADO'));
+	}
+	else if( $resultadoPush->error == TRUE ) // Se asume que el resultado tiene una variable que permite verificar 
+	{                                        // si sucede un error.
+		return Response::json(array('estado' => 'ERROR_ENVIAR_NOTIFICACION'));
+	}
+    
+    return Response::json(array('estado' => 'OPERACION_EXITOSA'));
+}
+
+public function send_push($servicio,$pushMessage)
+{
+	// Se usa switch que permite codificar de mejor forma distintos casos.
+	// Adicionalmente se deja un default para indicar que el tipo de dispositivo no se soporta
+	$push = Push::make();
+	switch ($servicio->user->type) 
+	{
+		case '1':
+			return $push->ios($servicio->user->uuid,$pushMessage,1,'honk.wav','Open',array('serviceId' => $servicio->id));
+		break;
+		case '2':
+			return $push->android2($servicio->user->uuid,$pushMessage,1,'default','Open',array('serviceId' => $servicio->id));
+		break;
+		default:
+			return NULL;
+	}
+}
